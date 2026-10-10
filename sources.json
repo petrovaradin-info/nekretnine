@@ -10,37 +10,128 @@
         {
           "transaction": "prodaja",
           "property_type": "stan",
-          "url": "https://www.oglasi.rs/nekretnine/prodaja-stanova/petrovaradin"
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-stanova/petrovaradin",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "izdavanje",
           "property_type": "stan",
-          "url": "https://www.oglasi.rs/nekretnine/izdavanje-stanova/petrovaradin"
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-stanova/petrovaradin",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "prodaja",
           "property_type": "kuca",
-          "url": "https://www.oglasi.rs/nekretnine/prodaja-kuca/petrovaradin"
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-kuca/petrovaradin",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "izdavanje",
           "property_type": "kuca",
-          "url": "https://www.oglasi.rs/nekretnine/izdavanje-kuca/petrovaradin"
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-kuca/petrovaradin",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "prodaja",
           "property_type": "poslovni_prostor",
-          "url": "https://www.oglasi.rs/nekretnine/prodaja-poslovnog-prostora/petrovaradin"
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-poslovnog-prostora/petrovaradin",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "izdavanje",
           "property_type": "poslovni_prostor",
-          "url": "https://www.oglasi.rs/nekretnine/izdavanje-poslovni-prostor-lokal-magacin/petrovaradin"
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-poslovni-prostor-lokal-magacin/petrovaradin",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "prodaja",
           "property_type": "plac",
-          "url": "https://www.oglasi.rs/nekretnine/prodaja-placeva/petrovaradin"
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-placeva/petrovaradin",
+          "location": "Petrovaradin"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "stan",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-stanova/sremska-kamenica",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "stan",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-stanova/sremska-kamenica",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "kuca",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-kuca/sremska-kamenica",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "kuca",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-kuca/sremska-kamenica",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-poslovnog-prostora/sremska-kamenica",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-poslovni-prostor-lokal-magacin/sremska-kamenica",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "plac",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-placeva/sremska-kamenica",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "stan",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-stanova/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "stan",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-stanova/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "kuca",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-kuca/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "kuca",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-kuca/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-poslovnog-prostora/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-poslovni-prostor-lokal-magacin/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "plac",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-placeva/sremski-karlovci",
+          "location": "Sremski Karlovci"
         }
       ]
     },
@@ -51,42 +142,146 @@
         {
           "transaction": "prodaja",
           "property_type": "stan",
-          "url": "https://www.4zida.rs/prodaja-stanova/petrovaradin-gradske-lokacije-novi-sad"
+          "url": "https://www.4zida.rs/prodaja-stanova/petrovaradin-gradske-lokacije-novi-sad",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "izdavanje",
           "property_type": "stan",
-          "url": "https://www.4zida.rs/izdavanje-stanova/petrovaradin-gradske-lokacije-novi-sad"
+          "url": "https://www.4zida.rs/izdavanje-stanova/petrovaradin-gradske-lokacije-novi-sad",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "prodaja",
           "property_type": "kuca",
-          "url": "https://www.4zida.rs/prodaja-kuca/petrovaradin-gradske-lokacije-novi-sad"
+          "url": "https://www.4zida.rs/prodaja-kuca/petrovaradin-gradske-lokacije-novi-sad",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "izdavanje",
           "property_type": "kuca",
-          "url": "https://www.4zida.rs/izdavanje-kuca/petrovaradin-gradske-lokacije-novi-sad"
+          "url": "https://www.4zida.rs/izdavanje-kuca/petrovaradin-gradske-lokacije-novi-sad",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "prodaja",
           "property_type": "poslovni_prostor",
-          "url": "https://www.4zida.rs/prodaja-poslovnih-prostora/petrovaradin-gradske-lokacije-novi-sad"
+          "url": "https://www.4zida.rs/prodaja-poslovnih-prostora/petrovaradin-gradske-lokacije-novi-sad",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "izdavanje",
           "property_type": "poslovni_prostor",
-          "url": "https://www.4zida.rs/izdavanje-poslovnih-prostora/petrovaradin-gradske-lokacije-novi-sad"
+          "url": "https://www.4zida.rs/izdavanje-poslovnih-prostora/petrovaradin-gradske-lokacije-novi-sad",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "prodaja",
           "property_type": "plac",
-          "url": "https://www.4zida.rs/prodaja-placeva/petrovaradin-gradske-lokacije-novi-sad"
+          "url": "https://www.4zida.rs/prodaja-placeva/petrovaradin-gradske-lokacije-novi-sad",
+          "location": "Petrovaradin"
         },
         {
           "transaction": "izdavanje",
           "property_type": "plac",
-          "url": "https://www.4zida.rs/izdavanje-placeva/petrovaradin-gradske-lokacije-novi-sad"
+          "url": "https://www.4zida.rs/izdavanje-placeva/petrovaradin-gradske-lokacije-novi-sad",
+          "location": "Petrovaradin"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "stan",
+          "url": "https://www.4zida.rs/prodaja-stanova/sremska-kamenica-gradske-lokacije-novi-sad",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "stan",
+          "url": "https://www.4zida.rs/izdavanje-stanova/sremska-kamenica-gradske-lokacije-novi-sad",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "kuca",
+          "url": "https://www.4zida.rs/prodaja-kuca/sremska-kamenica-gradske-lokacije-novi-sad",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "kuca",
+          "url": "https://www.4zida.rs/izdavanje-kuca/sremska-kamenica-gradske-lokacije-novi-sad",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.4zida.rs/prodaja-poslovnih-prostora/sremska-kamenica-gradske-lokacije-novi-sad",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.4zida.rs/izdavanje-poslovnih-prostora/sremska-kamenica-gradske-lokacije-novi-sad",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "plac",
+          "url": "https://www.4zida.rs/prodaja-placeva/sremska-kamenica-gradske-lokacije-novi-sad",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "plac",
+          "url": "https://www.4zida.rs/izdavanje-placeva/sremska-kamenica-gradske-lokacije-novi-sad",
+          "location": "Sremska Kamenica"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "stan",
+          "url": "https://www.4zida.rs/prodaja-stanova/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "stan",
+          "url": "https://www.4zida.rs/izdavanje-stanova/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "kuca",
+          "url": "https://www.4zida.rs/prodaja-kuca/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "kuca",
+          "url": "https://www.4zida.rs/izdavanje-kuca/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.4zida.rs/prodaja-poslovnih-prostora/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.4zida.rs/izdavanje-poslovnih-prostora/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "plac",
+          "url": "https://www.4zida.rs/prodaja-placeva/sremski-karlovci",
+          "location": "Sremski Karlovci"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "plac",
+          "url": "https://www.4zida.rs/izdavanje-placeva/sremski-karlovci",
+          "location": "Sremski Karlovci"
         }
       ]
     }
@@ -122,5 +317,11 @@
       "url": "https://www.solis-nekretnine.com",
       "status": "pending_adapter"
     }
+  ],
+  "photo_hash_limit": 6,
+  "locations": [
+    "Petrovaradin",
+    "Sremska Kamenica",
+    "Sremski Karlovci"
   ]
 }

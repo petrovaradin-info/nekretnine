@@ -11,6 +11,8 @@ if ($collectExit -notin @(0, 2)) { exit $collectExit }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $pythonExe $entry export --format csv
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& $pythonExe $entry deduplicate
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $pythonExe $entry candidates
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $pythonExe $entry report

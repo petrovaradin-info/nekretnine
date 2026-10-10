@@ -1,6 +1,6 @@
-# Nekretnine — Petrovaradin
+# Nekretnine — Petrovaradin i okolina
 
-Python 3.10+ sakupljač po obrascu projekta `oglasi`, sa zasebnim modelom i bazom za nekretnine.
+Python 3.10+ sakupljač nekretnina sa SQLite istorijom, fotografskim otiscima i grupisanim prikazom. Aktivna grana: `fix/nekretnine-001`.
 
 ## Pokretanje
 
@@ -9,66 +9,75 @@ cd D:\PycharmProjects\nekretnine
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 .\venv\Scripts\python.exe main.py collect
 .\venv\Scripts\python.exe main.py status
+.\venv\Scripts\python.exe main.py deduplicate
 .\venv\Scripts\python.exe main.py export
 .\venv\Scripts\python.exe main.py export --format csv
 .\venv\Scripts\python.exe main.py candidates
 .\venv\Scripts\python.exe main.py report
 ```
 
-`main.py` bez argumenata prikazuje pomoć. Python okruženje `venv` je lokalno; nije deo izvornog koda. Putanje baze, izvora, izvoza i logova vezane su za koren projekta.
-
-Primer ograničenog prolaza:
+Sve komande, redom, bez instaliranja rasporeda:
 
 ```powershell
-.\venv\Scripts\python.exe main.py collect --source oglasi --transaction izdavanje --type stan --max-details 3 --max-pages 1
-.\venv\Scripts\python.exe main.py export --transaction prodaja --type kuca
-```
-
-Tipovi: `stan`, `kuca`, `poslovni_prostor`, `plac`. Ponude: `prodaja`, `izdavanje`. Filteri su nezavisni i rade na sakupljanju, izvozu, pregledu i kandidatima za duplikate. `--refresh` preskače keš; inače se detalji osvežavaju nakon 24 sata, a ponovno pronalaženje u listi ažurira `last_seen`.
-
-`--max-details` i `--max-pages` važe po pretrazi, ne globalno. Izlazni kod 0 znači da su odabrane pretrage obrađene bez detektovanih problema, 2 znači delimičan rezultat/limit, 130 prekid. Limit nije potpuna pokrivenost. Ctrl+C završava prikupljanje sa kodom 130; već sačuvani oglasi ostaju u bazi.
-
-## Izvori
-
-- Oglasi.rs: prodaja i izdavanje stanova, kuća i poslovnih prostora; prodaja placeva. Putanja za izdavanje poslovnog prostora razlikuje se od prodajne.
-- 4zida: prodaja i izdavanje sva četiri tipa, uključujući placeve.
-- Ostali istraženi izvori navedeni su u `sources.json` kao `additional_sources`, bez implementiranih adaptera: Halo oglasi, Nekretnine.rs, City Expert, NadjiDom, NS Group, Solis. Ne predstavljaju se kao aktivni izvori.
-
-Obe implementacije proverene su direktnim HTTP pristupom 10.10.2026. i ograničenim prolazom kroz svih 15 pretraga. HTML uzorci u testovima predstavljaju snimke, ne aktuelnu ponudu. Za Oglasi.rs nije potvrđena kategorija izdavanja placeva.
-
-HTTP pristup poštuje `robots.txt`, razmak zahteva i crawl delay. Greške, blokade i neprepoznata prazna lista prijavljuju se kao `partial`. Nema zaobilaženja CAPTCHA ili pristupa nalozima. Na 4zida stranici stoji ograničenje preuzimanja sadržaja bez dozvole osim za lične potrebe posetilaca; tehnički funkcionalan adapter ne potvrđuje dozvolu za javnu/komercijalnu distribuciju. Pre takve upotrebe urediti dozvolu/feed sa izvorom.
-
-## Model nekretnine
-
-`transaction` i `property_type` dolaze iz kategorije samog oglasa, ne iz ključnih reči u opisu. Izvorna kategorija ostaje u `source_category`. Oglas iz druge kategorije dobija `search_category_conflict`.
-
-Čuvaju se naslov, opis, URL i ID izvora, oglašivač, agencijska šifra gde postoji, izvorna lokacija, potvrđena lokacija Petrovaradin, cena, valuta i osnova cene, površina objekta i zasebna površina placa, sobnost, sprat, grejanje i datum ažuriranja gde ih izvor objavljuje. Nedostajuća polja ostaju prazna. 4zida schema reference se razrešavaju po ID-u; adresa platforme se ne koristi kao adresa nekretnine. Opis se uzima iz oglasa, a ne iz navigacije ili preporučenih oglasa.
-
-Plac ima `plot_area_m2`; kuća može imati i `area_m2` i `plot_area_m2`. Ari i hektari se pretvaraju u m² uz očuvana izvorna polja. Ne izvodi se površina placa iz opisa kuće. Kategorija „kuća” ostaje kuća i kada opis pominje rušenje; precizniji podtipovi trenutno ostaju u izvornim poljima/opisu.
-
-Cena prodaje ima osnovu `total` (osim kada je navedena cena po m²), a izdavanje `unknown` dok tekst oglasa izričito ne navede mesečnu, dnevnu ili cenu po osobi. Nepoznat period nosi `rental_price_period_unknown`. Prepoznavanje perioda u tekstu nosi `rental_price_period_from_text` i zahteva proveru; ne čita se iz kreditnih rata ili navigacije. Oglas sa naznakom cene po m² dobija oznaku za proveru. Cena i površina iz strukturiranih podataka imaju prednost; neslaganje sa površinom u naslovu dobija `title_area_conflict`.
-
-Lokacija mora biti potvrđena u polju lokacije ili breadcrumb putanji oglasa. Sama lista za Petrovaradin nije potvrda. Nepotvrđeni oglasi ostaju za proveru sa `location_not_confirmed`; još nema geografskog poligona ni automatskog mapiranja mikrolokacija bez eksplicitnog Petrovaradina. Izvoz uključuje i zapise za proveru; koristiti `review_reasons` i `location` pri prikazu na odredišnoj platformi.
-
-## Baza, istorija i dostupnost
-
-`data/nekretnine.sqlite3` ima tabele `listings`, `versions` i `runs`. Isti izvorni URL se ažurira bez novog oglasa. Promena sadržaja/cene pravi novu verziju; prvi pronalazak ostaje sačuvan. `first_seen` i `last_seen` nisu datum objavljivanja. `updated_at` je datum koji prikazuje izvor; `published_at` ostaje prazan ako nije objavljen.
-
-Status `observed` znači da je oglas viđen, bez tvrdnje da je nekretnina još dostupna. Potvrđeni HTTP 404/410 označava poznati oglas kao `unavailable`; ne znači „prodato”. Nestanak iz liste, delimičan prolaz ili pad sajta ne menjaju status starih oglasa. Poznati URL-ovi koji nestanu iz liste još se ne proveravaju zasebnim periodičnim obilaskom.
-
-`candidates` daje konzervativne predloge duplikata između izvora: ista ponuda i tip, potvrđena ista lokacija, slična cena/površina i vrlo sličan opis ili ista agencijska šifra i oglašivač. Rezultat zahteva pregled i ne menja bazu. Ne spaja različite stanove u istoj novogradnji samo zbog cene i kvadrature. JSON/CSV i pregled su po izvornoj objavi, ne po jedinstvenoj fizičkoj nekretnini.
-
-## Izlazi i provera
-
-- `data/nekretnine.json`: pun JSON sa oznakama za proveru i vremenima pronalaska.
-- `data/nekretnine.csv`: CSV za Excel, UTF-8 BOM, separator `;`, neutralizovane formule u tekstu.
-- `data/nekretnine-pregled.html`: samostalan lokalni pregled sa pretragom i filterima.
-- `data/nekretnine-duplikati.json`: kandidati za pregled.
-- `logs/collect-DATUM-VREME-PID.log`: zahtevi, ishodi i problemi svakog prolaza.
-
-```powershell
-.\venv\Scripts\python.exe -m unittest discover -s tests -v
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-collector.ps1
 ```
 
-Skripta ažurira izvoze i pregled i kod delimično uspešnog prolaza. Raspored nije instaliran. Nije napravljen javni sajt niti je nešto objavljeno na GitHub-u.
+Baza i logovi su u `data/` i `logs/`. Putanje su vezane za projekat, ne trenutni terminal. `--refresh` obnavlja detalje; podrazumevani keš je 24 sata. `--max-details` i `--max-pages` važe po pretrazi. Ograničen prolaz daje status `partial` i kod 2. Kod 0 znači da nema detektovanih grešaka/limita u odabranim pretragama; nije garancija svih oglasa sa interneta. Ctrl+C završava sa kodom 130 i čuva već upisane podatke.
+
+## Lokalni obuhvat i kategorije
+
+Dozvoljena mesta: **Petrovaradin, Sremska Kamenica i Sremski Karlovci**. Ukupno je podešeno 45 pretraga: Oglasi.rs po sedam kategorija za svako mesto; 4zida po osam. Osnovne prodajne putanje za nova mesta proverene su direktnim HTTP pristupom; ostale dele isti kategorijski obrazac i još zahtevaju potpun probni prolaz.
+
+`prodaja` / `izdavanje` i `stan` / `kuca` / `poslovni_prostor` / `plac` su nezavisni filteri. Oglasi.rs nema potvrđenu posebnu kategoriju izdavanja placeva; 4zida ima. Ostali istraženi izvori su samo kandidati u `additional_sources`, bez adaptera.
+
+```powershell
+.\venv\Scripts\python.exe main.py collect --source oglasi --location "Petrovaradin" --transaction izdavanje --type stan --max-details 3 --max-pages 1
+.\venv\Scripts\python.exe main.py export --location "Sremska Kamenica" --transaction prodaja --type kuca
+```
+
+Lokacija mora biti navedena u polju lokacije ili geografskoj breadcrumb putanji samog oglasa. Naziv „Novi Sad”, naslov, opis, sedište agencije ili sama stranica pretrage nisu dovoljni. Neslaganje izričito navedenog mesta u naslovu i izvornog polja lokacije nosi `title_location_conflict` i izostavlja se iz lokalnog izvoza do provere. Nepoznata, višeznačna i druga mesta preskaču se pri sakupljanju, uz brojač `outside_area`. Stari zapisi ostaju u bazi, ali se van dozvoljenog obuhvata ne izvoze i ne prikazuju. Ćirilica i latinica se normalizuju. Nema automatskog zaključivanja mesta samo iz mikrolokacije bez eksplicitnog roditeljskog mesta.
+
+## Cene i površine
+
+Prodajna cena je ukupna cena nekretnine (`total`), a izdavanje podrazumevano mesečna zakupnina (`monthly`), prema dogovorenom pravilu. `price_basis_method=transaction_default` jasno označava ovu pretpostavku. Izričito navedeni stan na dan/dnevni najam i cena po osobi imaju `daily` / `per_person` i ne grupišu se sa redovnom mesečnom zakupninom. Negirano „ne izdaje se stan na dan” ne menja mesečni osnov. Izričita jedinica po m² u izvornom polju cene ostaje za proveru; ne predstavlja se kao ukupna cena.
+
+`area_m2` je površina objekta, a `plot_area_m2` površina zemljišta. Kuća može imati obe vrednosti; plac koristi samo površinu zemljišta. Ari/hektari se pretvaraju u m². Nepostojeća polja ostaju prazna. Neslaganje kvadrature naslova i strukturiranih podataka nosi `title_area_conflict` i sprečava automatsko grupisanje.
+
+## Prepoznavanje istih nekretnina
+
+Jednaka cena i kvadratura same nisu dokaz. Poređenje traži isto mesto, vrstu ponude, tip nekretnine, valutu i osnov cene, kao i površinu uz toleranciju od 2%, odnosno najmanje 1 m². Poznati različiti sprat, sobnost, adresa, površina placa uz kuću ili različite šifre iste agencije sprečavaju grupisanje.
+
+Automatska grupa traži jedan od obrazaca:
+
+1. Isti normalizovani oglašivač i njegova ista agencijska šifra, uz saglasnu površinu i bez velikog cenovnog odstupanja.
+2. Najmanje dve različite podudarne fotografije, saglasnu površinu, cenu unutar 10% i dodatno saglasnu poznatu sobnost/sprat ili vrlo sličan pun opis.
+3. Gotovo isti pun opis (najmanje 200 znakova, sličnost 97%), saglasnu površinu/cenu i saglasnu poznatu sobnost i sprat.
+
+Dokazi i odstupanja čuvaju se u `matching_evidence`. Slabija podudaranja ostaju u `candidates` za pregled. Agencijska šifra bez istog oglašivača nije dovoljan dokaz. Jedna fotografija nije dovoljna sama. Pravila se primenjuju i na više objava istog sajta. Svaki par članova grupe mora proći pravila; nema lančanog spajanja A–B–C ako su A i C u konfliktu.
+
+Ovo je konzervativno prepoznavanje, ne potvrda identiteta vlasnika ili nekretnine. Zajedničke fotografije/renderi i šablonski opisi novogradnje ostaju mogući izvori greške. Oglasi bez dovoljno dokaza prikazuju se kao zasebne grupe. Trenutni mali probni uzorak nije merilo preciznosti na celom tržištu.
+
+Fotografije se uzimaju iz galerije oglasa, ne iz logotipa agencije ili navigacije. Prvih šest po oglasu se podrazumevano obrađuje u memoriji. Čuvaju se URL, SHA-256, dHash i aHash, dimenzije i 24-časovni keš otisaka; originalne datoteke se ne skladište. Vizuelno poređenje dopušta male promene kompresije/dimenzija, ali ne garantuje prepoznavanje velikih kropova i vodenih žigova. Male/jednobojne slike se odbacuju; ponovljena ista fotografija u galeriji broji se jednom. U `sources.json` postaviti `photo_hash_limit: 0` za isključivanje preuzimanja fotografija. Greške fotografija prikazuju se u `photo_errors` i logu, bez gubitka važećeg tekstualnog oglasa.
+
+## Grupisani izlazi
+
+- `export`: `data/nekretnine.json`, jedna stavka po grupi, sa svim originalima u `listings` i linkovima/cenama u `sources`.
+- `export --flat`: kompatibilan ravan JSON pojedinačnih oglasa.
+- `export --format csv`: jedan red po izvornom oglasu, zajednički `group_id` i `group_size`; UTF-8 BOM i separator `;`, neutralizovane formule.
+- `deduplicate`: `data/nekretnine-grupe.json`, grupisani snimak bez menjanja izvornih zapisa.
+- `candidates`: `data/nekretnine-duplikati.json`, svi prepoznati parovi sa `automatic` i `review_required`.
+- `report`: `data/nekretnine-pregled.html`, kartica po grupi, svi originalni oglasi i njihove cene, filteri za mesta i kategorije.
+
+`price_min` i `price_max` pokazuju razliku cena unutar grupe. Glavna polja grupe dolaze iz najpotpunijeg člana; svaki original zadržava svoje podatke. `group_id` je deterministički za isti skup URL-ova i menja se ako se promeni članstvo grupe; nije trajni identifikator fizičke nekretnine. Stari zapisi se pri čitanju usklađuju sa novim lokalnim/mesecnim pravilima bez izmišljanja novog datuma preuzimanja. Fotografije starih zapisa dopunjuju se tek nakon `collect --refresh`.
+
+## Istorija, dostupnost i pristup
+
+SQLite čuva izvorne objave, verzije, pokretanja i keš fotografija. Promena istog URL-a čuva novu verziju, uz nepromenjen prvi pronalazak. `first_seen` i `last_seen` nisu datum objave. Status `observed` znači viđen oglas; HTTP 404/410 znači `unavailable`, ne „prodato”. Nestanak sa liste ili greška izvora ne menja dostupnost starih oglasa. Poznati URL-ovi koji nestanu sa lista još nemaju poseban periodični obilazak.
+
+HTML i fotografski zahtevi poštuju `robots.txt`, crawl delay i razmak zahteva. Nema zaobilaženja CAPTCHA. Fotografija ima limit 8 MiB i 20 megapiksela. Tehnički pristup ne potvrđuje pravo distribucije sadržaja; na 4zida je navedeno ograničenje preuzimanja osim za lične potrebe bez njihove dozvole. Pre javne/komercijalne upotrebe urediti dozvolu/feed sa izvorom.
+
+```powershell
+.\venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+Testovi pokrivaju stvarne HTML uzorke, grupisanje i razlike između stanova, fotografije pri kompresiji/promeni dimenzija, lokalni filter, cene, istoriju i očuvanje svih izvornih linkova. Raspored nije instaliran i sadržaj nije javno objavljen.
