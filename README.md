@@ -57,7 +57,7 @@ Dokazi i odstupanja čuvaju se u `matching_evidence`. Slabija podudaranja ostaju
 
 Ovo je konzervativno prepoznavanje, ne potvrda identiteta vlasnika ili nekretnine. Zajedničke fotografije/renderi i šablonski opisi novogradnje ostaju mogući izvori greške. Oglasi bez dovoljno dokaza prikazuju se kao zasebne grupe. Trenutni mali probni uzorak nije merilo preciznosti na celom tržištu.
 
-Fotografije se uzimaju iz galerije oglasa, ne iz logotipa agencije ili navigacije. Prvih šest po oglasu se podrazumevano obrađuje u memoriji. Čuvaju se URL, SHA-256, dHash i aHash, dimenzije i 24-časovni keš otisaka; originalne datoteke se ne skladište. Vizuelno poređenje dopušta male promene kompresije/dimenzija, ali ne garantuje prepoznavanje velikih kropova i vodenih žigova. Male/jednobojne slike se odbacuju; ponovljena ista fotografija u galeriji broji se jednom. U `sources.json` postaviti `photo_hash_limit: 0` za isključivanje preuzimanja fotografija. Greške fotografija prikazuju se u `photo_errors` i logu, bez gubitka važećeg tekstualnog oglasa.
+Čuva se samo URL prve fotografije iz galerije oglasa, koju koristimo kao glavnu fotografiju u pregledu. Sakupljač ne preuzima slike i ne računa otiske; `photo_hash_limit` je zastarela opcija koja se više ne koristi u sakupljanju. Fotografija se učitava sa izvora kada korisnik otvori HTML pregled, a cela galerija ostaje na stranici oglašivača. Stari zapisi i istorija u bazi ostaju sačuvani, dok izvoz daje samo prvu fotografiju. Grupisanje novih oglasa oslanja se na tekstualne podatke i agencijske šifre; različite glavne fotografije mogu ostaviti isti oglas u odvojenim grupama. Postojeći otisci glavne fotografije ostaju kompatibilni sa starim dokazima.
 
 ## Grupisani izlazi
 

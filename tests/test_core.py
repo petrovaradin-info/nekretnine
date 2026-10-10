@@ -23,7 +23,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual((ad.transaction,ad.property_type,ad.location),('prodaja','stan','Petrovaradin'))
         self.assertEqual(ad.price,81090); self.assertEqual(ad.area_m2,30)
         self.assertIn('BERZA',ad.advertiser); self.assertEqual(ad.agency_id,'1008009')
-        self.assertTrue(ad.photos)
+        self.assertEqual(len(ad.photos),1)
         self.assertTrue(all('media.oglasi.rs' in p['url'] for p in ad.photos))
 
     def test_4zida_references_not_publisher_address(self):
@@ -31,7 +31,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(ad.price,226500); self.assertEqual(ad.area_m2,101)
         self.assertEqual(ad.rooms,'4'); self.assertEqual(ad.location,'Petrovaradin')
         self.assertNotIn('Subotica',ad.location_raw)
-        self.assertGreater(len(ad.photos),2)
+        self.assertEqual(len(ad.photos),1)
         self.assertFalse(any('agencies/' in p['url'] for p in ad.photos))
 
     def test_all_categories_are_independent(self):
@@ -114,3 +114,20 @@ class StoreTests(unittest.TestCase):
             self.assertIn("'=SUM(1,2)",path.read_text(encoding='utf-8-sig'))
 
 if __name__=='__main__': unittest.main()
+
+class MainPhotoTests(unittest.TestCase):
+    def test_collection_never_downloads_photos_even_with_legacy_option(self):
+        from unittest.mock import Mock, patch
+        client=Mock()
+        client.get.return_value='html'
+        ad=Listing(url='https://test/ad',source='test',source_id='1',title='Stan',transaction='prodaja',property_type='stan',location_raw='Petrovaradin',photos=[{'url':'https://test/main.jpg'},{'url':'https://test/second.jpg'}]).validate()
+        config={'photo_hash_limit':6,'sources':[{'id':'test','searches':[{'url':'https://test/list','transaction':'prodaja','property_type':'stan','location':'Petrovaradin'}]}]}
+        with tempfile.TemporaryDirectory() as directory:
+            store=Store(Path(directory)/'test.sqlite3')
+            try:
+                with patch('nekretnine.collector.listing_page',return_value=([ad.url],[],False)), patch('nekretnine.collector.detail',return_value=ad):
+                    result=collect(store,config,client=client)
+                self.assertEqual(result[0]['saved'],1)
+                client.get_image.assert_not_called()
+                self.assertEqual(store.listings()[0]['photos'],[{'url':'https://test/main.jpg'}])
+            finally:store.close()

@@ -318,7 +318,7 @@
       "status": "pending_adapter"
     }
   ],
-  "photo_hash_limit": 6,
+  "photo_hash_limit": 0,
   "locations": [
     "Petrovaradin",
     "Sremska Kamenica",

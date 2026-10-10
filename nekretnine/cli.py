@@ -22,6 +22,7 @@ def main(argv=None):
     parser.add_argument('--config',type=Path,default=ROOT/'sources.json')
     subs=parser.add_subparsers(dest='command',required=True)
     p=subs.add_parser('collect')
+    p.add_argument('--location',choices=LOCATIONS)
     p.add_argument('--source'); p.add_argument('--refresh',action='store_true')
     p.add_argument('--max-details',type=positive); p.add_argument('--max-pages',type=positive)
     p.add_argument('--log-file',type=Path)
@@ -32,10 +33,6 @@ def main(argv=None):
     p=subs.add_parser('watch',help='Prikaz procenta i procene vremena u drugom terminalu')
     p.add_argument('--interval',type=positive,default=5)
     p.add_argument('--once',action='store_true')
-    for name in ('export','report','candidates'):
-    p.add_argument('--location',choices=LOCATIONS)
-    p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
-    p=subs.add_parser('status')
     for name in ('export','report','candidates','deduplicate'):
         p=subs.add_parser(name)
         p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
@@ -63,10 +60,9 @@ def main(argv=None):
             from .locking import CollectionLock,CollectionBusy
             try:
                 with CollectionLock(args.database.with_suffix('.collect.lock')):
-                    reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh,progress_path=progress_path,progress_interval=args.progress_interval,log_file=log)
+                    reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh,progress_path=progress_path,progress_interval=args.progress_interval,log_file=log,location=args.location)
             except CollectionBusy as e:
                 print(e);return 3
-            reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh,location=args.location)
             print(json.dumps(reports,ensure_ascii=False,indent=2))
             if any(r['status']=='interrupted' for r in reports): return 130
             return 0 if reports and all(r['status']=='ok' for r in reports) else 2

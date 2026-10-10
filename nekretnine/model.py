@@ -98,7 +98,10 @@ class Listing:
     price_basis_method: str = ""
 
 
-    def to_dict(self): return asdict(self)
+    def to_dict(self):
+        data=asdict(self)
+        data['photos']=data['photos'][:1]
+        return data
 
     def validate(self):
         if self.transaction not in TRANSACTIONS or self.property_type not in PROPERTY_TYPES:
