@@ -80,4 +80,32 @@ HTML i fotografski zahtevi poštuju `robots.txt`, crawl delay i razmak zahteva. 
 .\venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
+Skripta ažurira izvoze i pregled i kod delimično uspešnog prolaza. Raspored nije instaliran. Nije napravljen javni sajt niti je nešto objavljeno na GitHub-u.
+
+## Pokretanje i nadgledanje (fix/nekretnine-002)
+
+U PowerShell terminalu:
+
+```powershell
+cd D:\PycharmProjects\nekretnine
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-collector.ps1
+```
+
+U drugom terminalu pratite napredak:
+
+```powershell
+cd D:\PycharmProjects\nekretnine
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\watch-collector.ps1
+```
+
+`-Once` daje jedan prikaz, a `-Interval 3` menja interval čitanja. Alternativa je `venv\Scripts\python.exe main.py watch`; `main.py status --live` daje jedan trenutni prikaz. Ctrl+C u monitoru zatvara samo monitor. Ctrl+C u sakupljaču prekida prolaz i ostavlja sačuvane podatke.
+
+Prikaz sadrži približan procenat, završene/ukupne pretrage, proteklo vreme, procenjeno preostalo vreme, obrađene oglase, sačuvane oglase, preskočene sveže oglase i greške. Napredak se zapisuje na svakih 10 sekundi, i dok traje mrežni zahtev, u `data/nekretnine.progress.json`. Sadrži i PID, aktivni URL, pojedinačne pretrage i putanju loga. Monitor prijavljuje ugašen proces i zastareo prikaz.
+
+Procena koristi obim ranijih neograničenih prolaza bez grešaka, broj oglasa koji sajt objavljuje i novootkrivene stranice. Bez istorije počinje sa grubom pretpostavkom; procena vremena pojavljuje se posle 30 sekundi rada. Procenat može da se smanji kada se otkrije dodatni obim. Brzina keširanih oglasa i mrežni zastoji utiču na tačnost procene. 100% znači da je završen pokušaj svih izabranih pretraga; proverite greške i broj pretraga sa problemom. Ograničen ili delimičan prolaz nije potpuna kolekcija.
+
+Drugi sakupljač nad istom bazom odbija se OS zaključavanjem (izlazni kod 3); zaključavanje se oslobađa pri završetku procesa. Nemojte brisati `.collect.lock` dok proces radi. Za ponovnu obradu svih poznatih oglasa prosledite `-Refresh` skripti za pokretanje; normalno pokretanje preskače sveže oglase. Posle sakupljanja skripta osvežava JSON, CSV, predloge duplikata i HTML pregled.
+
+Proces pokrenut pre ove verzije nema prikaz napretka ni zaključavanje: sačekajte njegov završetak pre novog pokretanja. Njegov rad možete pratiti preko `Get-Content <putanja-loga> -Tail 20 -Wait`. Novi monitor važi od sledećeg pokretanja.
+
 Testovi pokrivaju stvarne HTML uzorke, grupisanje i razlike između stanova, fotografije pri kompresiji/promeni dimenzija, lokalni filter, cene, istoriju i očuvanje svih izvornih linkova. Raspored nije instaliran i sadržaj nije javno objavljen.
