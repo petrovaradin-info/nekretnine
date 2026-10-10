@@ -1,0 +1,1 @@
+"""Sakupljac nekretnina za Petrovaradin."""

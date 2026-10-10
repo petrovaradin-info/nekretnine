@@ -1,0 +1,126 @@
+{
+  "request_delay": 2,
+  "refresh_hours": 24,
+  "max_pages": 200,
+  "sources": [
+    {
+      "id": "oglasi",
+      "enabled": true,
+      "searches": [
+        {
+          "transaction": "prodaja",
+          "property_type": "stan",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-stanova/petrovaradin"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "stan",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-stanova/petrovaradin"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "kuca",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-kuca/petrovaradin"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "kuca",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-kuca/petrovaradin"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-poslovnog-prostora/petrovaradin"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.oglasi.rs/nekretnine/izdavanje-poslovni-prostor-lokal-magacin/petrovaradin"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "plac",
+          "url": "https://www.oglasi.rs/nekretnine/prodaja-placeva/petrovaradin"
+        }
+      ]
+    },
+    {
+      "id": "4zida",
+      "enabled": true,
+      "searches": [
+        {
+          "transaction": "prodaja",
+          "property_type": "stan",
+          "url": "https://www.4zida.rs/prodaja-stanova/petrovaradin-gradske-lokacije-novi-sad"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "stan",
+          "url": "https://www.4zida.rs/izdavanje-stanova/petrovaradin-gradske-lokacije-novi-sad"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "kuca",
+          "url": "https://www.4zida.rs/prodaja-kuca/petrovaradin-gradske-lokacije-novi-sad"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "kuca",
+          "url": "https://www.4zida.rs/izdavanje-kuca/petrovaradin-gradske-lokacije-novi-sad"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.4zida.rs/prodaja-poslovnih-prostora/petrovaradin-gradske-lokacije-novi-sad"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "poslovni_prostor",
+          "url": "https://www.4zida.rs/izdavanje-poslovnih-prostora/petrovaradin-gradske-lokacije-novi-sad"
+        },
+        {
+          "transaction": "prodaja",
+          "property_type": "plac",
+          "url": "https://www.4zida.rs/prodaja-placeva/petrovaradin-gradske-lokacije-novi-sad"
+        },
+        {
+          "transaction": "izdavanje",
+          "property_type": "plac",
+          "url": "https://www.4zida.rs/izdavanje-placeva/petrovaradin-gradske-lokacije-novi-sad"
+        }
+      ]
+    }
+  ],
+  "additional_sources": [
+    {
+      "id": "halo",
+      "url": "https://www.halooglasi.com/nekretnine",
+      "status": "pending_adapter"
+    },
+    {
+      "id": "nekretnine_rs",
+      "url": "https://www.nekretnine.rs",
+      "status": "pending_adapter"
+    },
+    {
+      "id": "cityexpert",
+      "url": "https://cityexpert.rs",
+      "status": "pending_adapter"
+    },
+    {
+      "id": "nadjidom",
+      "url": "https://www.nadjidom.com",
+      "status": "pending_adapter"
+    },
+    {
+      "id": "nsgroup",
+      "url": "https://nekretnine-novisad.rs",
+      "status": "pending_adapter"
+    },
+    {
+      "id": "solis",
+      "url": "https://www.solis-nekretnine.com",
+      "status": "pending_adapter"
+    }
+  ]
+}
