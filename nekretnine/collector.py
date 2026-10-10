@@ -6,6 +6,8 @@ import requests
 from protego import Protego
 from .model import now, canonical
 from .parsers import listing_page, detail, listing_total
+from .model import now, canonical, LOCATIONS, local_location
+from .parsers import listing_page, detail
 
 LOG = logging.getLogger(__name__)
 AGENT = "PetrovaradinRealEstate/0.1"
@@ -23,34 +25,59 @@ class Client:
         self.last = {}
         self.robots = {}
 
-    def request(self, url):
+    def request(self, url, stream=False):
         host = urlsplit(url).netloc
         time.sleep(max(0, self.delay - (time.monotonic() - self.last.get(host, 0))))
         LOG.info('GET %s', url)
         try:
-            r = self.session.get(url, timeout=(10, 30), allow_redirects=False)
+            r = self.session.get(url, timeout=(10, 30), allow_redirects=False, stream=stream)
             self.last[host] = time.monotonic()
             LOG.info('HTTP %s %s', r.status_code, url)
-            if r.status_code >= 400: raise FetchError(f'HTTP {r.status_code}: {url}', r.status_code)
+            if r.status_code >= 400:
+                r.close()
+                raise FetchError(f'HTTP {r.status_code}: {url}', r.status_code)
             r.encoding = 'utf-8' if 'charset=' not in r.headers.get('Content-Type','').lower() else r.encoding
             return r
         except requests.RequestException as e: raise FetchError(str(e)) from e
 
+    def check_robots(self, url):
+        p = urlsplit(url)
+        origin = f'{p.scheme}://{p.netloc}'
+        if origin not in self.robots:
+            try:
+                r = self.request(origin + '/robots.txt')
+                if r.is_redirect: raise FetchError('robots.txt redirect requires manual verification')
+                self.robots[origin] = Protego.parse(r.text)
+            except FetchError as e:
+                if e.status == 404: self.robots[origin] = Protego.parse('')
+                else: raise
+        robot = self.robots[origin]
+        if not robot.can_fetch(url, AGENT): raise FetchError('robots.txt disallows ' + url)
+        self.delay = max(self.delay, robot.crawl_delay(AGENT) or 0)
+
+    def get_image(self, url):
+        limit = 8 * 1024 * 1024
+        for _ in range(5):
+            self.check_robots(url)
+            response = self.request(url, stream=True)
+            with response:
+                if response.is_redirect:
+                    url = urljoin(url, response.headers['Location'])
+                    if urlsplit(url).scheme not in ('https','http'): raise FetchError('Invalid image redirect')
+                    continue
+                if not response.headers.get('Content-Type','').lower().startswith('image/'):
+                    raise FetchError('Unexpected photo content type')
+                data=bytearray()
+                for chunk in response.iter_content(65536):
+                    data.extend(chunk)
+                    if len(data)>limit: raise FetchError('Photo exceeds 8 MiB limit')
+                return bytes(data)
+        raise FetchError('Too many image redirects')
+
     def get(self, url):
         for _ in range(8):
             p = urlsplit(url)
-            origin = f'{p.scheme}://{p.netloc}'
-            if origin not in self.robots:
-                try:
-                    r = self.request(origin + '/robots.txt')
-                    if r.is_redirect: raise FetchError('robots.txt redirect requires manual verification')
-                    self.robots[origin] = Protego.parse(r.text)
-                except FetchError as e:
-                    if e.status == 404: self.robots[origin] = Protego.parse('')
-                    else: raise
-            robot = self.robots[origin]
-            if not robot.can_fetch(url, AGENT): raise FetchError('robots.txt disallows ' + url)
-            self.delay = max(self.delay, robot.crawl_delay(AGENT) or 0)
+            self.check_robots(url)
             r = self.request(url)
             if r.is_redirect:
                 target = urljoin(url, r.headers['Location'])
@@ -80,12 +107,14 @@ def collect(store, config, only=None, transaction=None, property_type=None, max_
 
 
 def _collect(store, config, only=None, transaction=None, property_type=None, max_details=None, max_pages=None, refresh=False, client=None, progress=None):
+
     client = client or Client(config.get('request_delay', 2))
     reports = []
     try:
         for source in config['sources']:
             if only and source['id'] != only: continue
             for search in source.get('searches', []):
+                if location and search.get('location') != location: continue
                 if transaction and transaction != search['transaction']: continue
                 if property_type and property_type != search['property_type']: continue
                 key=(source['id'],search['url'])
@@ -129,6 +158,14 @@ def _collect(store, config, only=None, transaction=None, property_type=None, max
                                 counts['attempted'] += 1
                                 try:
                                     ad = detail(client.get(link), link, source['id'], search)
+                                    if ad.location not in LOCATIONS or 'title_location_conflict' in ad.review_reasons or (search.get('location') and ad.location != search['location']):
+                                        counts['outside_area'] += 1; LOG.info('OUTSIDE AREA %s %s',ad.location_raw,link); continue
+                                    if config.get('photo_hash_limit',6):
+                                        from .photos import enrich_photos
+                                        photo_errors = enrich_photos(ad,client,store,limit=config.get('photo_hash_limit',6))
+                                        counts['photo_errors'].extend(photo_errors)
+                                        for error in photo_errors: LOG.warning('PHOTO ERROR %s %s',error['url'],error['error'])
+                                    counts['photos_hashed'] += sum(bool(p.get('dhash')) for p in ad.photos)
                                     store.save(ad); counts['saved'] += 1
                                     counts['review'] += bool(ad.review_reasons)
                                     LOG.info('SAVED %s %s price=%s area=%s review=%s %s', ad.transaction, ad.property_type, ad.price, ad.area_m2 or ad.plot_area_m2, ad.review_reasons, link)
