@@ -5,7 +5,7 @@ from urllib.parse import urlsplit, urljoin
 import requests
 from protego import Protego
 from .model import now, canonical
-from .parsers import listing_page, detail
+from .parsers import listing_page, detail, listing_total
 
 LOG = logging.getLogger(__name__)
 AGENT = "PetrovaradinRealEstate/0.1"
@@ -64,7 +64,22 @@ class Client:
         raise FetchError('Too many redirects')
 
 
-def collect(store, config, only=None, transaction=None, property_type=None, max_details=None, max_pages=None, refresh=False, client=None):
+def collect(store, config, only=None, transaction=None, property_type=None, max_details=None, max_pages=None, refresh=False, client=None, progress_path=None, progress_interval=10, log_file=None):
+    from .progress import Progress
+    targets=[(source,search) for source in config['sources'] for search in source.get('searches',[]) if (not only or source['id']==only) and (not transaction or search['transaction']==transaction) and (not property_type or search['property_type']==property_type)]
+    progress=Progress(store,targets,path=progress_path,interval=progress_interval,log_file=log_file)
+    progress.start()
+    phase='error'
+    try:
+        result=_collect(store,config,only,transaction,property_type,max_details,max_pages,refresh,client,progress)
+        phase='interrupted' if any(r['status']=='interrupted' for r in result) else 'complete'
+        return result
+    except KeyboardInterrupt:
+        phase='interrupted';raise
+    finally:progress.finish(phase)
+
+
+def _collect(store, config, only=None, transaction=None, property_type=None, max_details=None, max_pages=None, refresh=False, client=None, progress=None):
     client = client or Client(config.get('request_delay', 2))
     reports = []
     try:
@@ -73,11 +88,14 @@ def collect(store, config, only=None, transaction=None, property_type=None, max_
             for search in source.get('searches', []):
                 if transaction and transaction != search['transaction']: continue
                 if property_type and property_type != search['property_type']: continue
-                started = now()
-                counts = dict(pages=0, discovered=0, attempted=0, saved=0, cached=0, review=0, errors=[])
+                key=(source['id'],search['url'])
+                started = now();started_clock=time.monotonic()
+                progress.update(key)
+                counts = dict(pages=0, discovered=0, attempted=0, saved=0, cached=0, review=0, processed=0, errors=[])
                 if not source.get('enabled', True) or not search.get('enabled', True):
                     counts['reason'] = search.get('note', source.get('note','pending adapter'))
                     store.record(source['id'], search['url'], started, 'pending_integration', counts)
+                    progress.update(key,counts,status='pending_integration');progress.emit()
                     reports.append(dict(source=source['id'], url=search['url'], status='pending_integration', **counts))
                     continue
                 queue, visited, seen = deque([search['url']]), set(), set()
@@ -95,6 +113,7 @@ def collect(store, config, only=None, transaction=None, property_type=None, max_
                             html = client.get(url)
                             links, pages, empty = listing_page(html, url, source['id'])
                             counts['pages'] += 1
+                            progress.update(key,counts,pending_pages=len(set(queue)-visited),pending_ads=len(set(links)-seen),total_ads=listing_total(html),page_size=len(links) or None)
                             if not links and not empty: raise ValueError('No listing links or confirmed empty result; parser/access needs review')
                             queue.extend(p for p in pages if p not in visited)
                             LOG.info('[%s %s %s] PAGE %s: %s listings', source['id'], search['transaction'], search['property_type'], counts['pages'], len(links))
@@ -102,7 +121,9 @@ def collect(store, config, only=None, transaction=None, property_type=None, max_
                                 if link in seen: continue
                                 seen.add(link); counts['discovered'] += 1
                                 if not refresh and store.fresh(link, config.get('refresh_hours',24)):
-                                    store.seen(link); counts['cached'] += 1; LOG.info('CACHED %s',link); continue
+                                    store.seen(link); counts['cached'] += 1;counts['processed'] += 1
+                                    progress.update(key,counts,pending_pages=len(set(queue)-visited))
+                                    LOG.info('CACHED %s',link); continue
                                 if max_details is not None and counts['attempted'] >= max_details:
                                     limited = True; break
                                 counts['attempted'] += 1
@@ -114,6 +135,9 @@ def collect(store, config, only=None, transaction=None, property_type=None, max_
                                 except (FetchError, ValueError) as e:
                                     if isinstance(e, FetchError) and e.status in (404,410): store.unavailable(canonical(link))
                                     counts['errors'].append({'url':link,'error':str(e)}); LOG.warning('DETAIL ERROR %s %s',link,e)
+                                finally:
+                                    counts['processed'] += 1
+                                    progress.update(key,counts,pending_pages=len(set(queue)-visited))
                             if limited: break
                         except (FetchError, ValueError) as e:
                             counts['errors'].append({'url':url,'error':str(e)}); LOG.warning('LIST ERROR %s %s',url,e)
@@ -121,6 +145,8 @@ def collect(store, config, only=None, transaction=None, property_type=None, max_
                     interrupted = True
                 status = 'interrupted' if interrupted else 'partial' if limited or counts['errors'] else 'ok'
                 counts['limited'] = limited
+                counts['elapsed_seconds']=round(time.monotonic()-started_clock,2)
+                progress.update(key,counts,status=status);progress.emit()
                 store.record(source['id'], search['url'], started, status, counts)
                 reports.append(dict(source=source['id'], url=search['url'], status=status, **counts))
                 LOG.info('FINISHED %s %s %s: %s', source['id'], search['transaction'], search['property_type'], status)

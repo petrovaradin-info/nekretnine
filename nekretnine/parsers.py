@@ -162,3 +162,17 @@ def detail(html, url, source, search):
     code = re.search(r"(?:agencijska šifra|agencijski id)\s*:\s*([A-Za-z0-9-]+)", ad.description, re.I)
     if code: ad.agency_id = code[1]
     return ad.validate()
+
+
+def listing_total(html):
+    """Only a published result count; never infer a total from pagination limits."""
+    soup=BeautifulSoup(html,'html.parser')
+    heading=soup.select_one('h1')
+    if not heading:return None
+    candidates=[n for n in heading.next_elements if getattr(n,'name',None)]
+    for node in candidates[:120]:
+        value=text(node)
+        match=re.fullmatch(r"([0-9][0-9.\s]*)\s+oglas(?:a)?",value)
+        if match:
+            return int(re.sub(r"[^0-9]","",match[1]))
+    return None

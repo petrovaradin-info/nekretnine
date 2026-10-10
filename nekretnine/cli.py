@@ -25,14 +25,24 @@ def main(argv=None):
     p.add_argument('--source'); p.add_argument('--refresh',action='store_true')
     p.add_argument('--max-details',type=positive); p.add_argument('--max-pages',type=positive)
     p.add_argument('--log-file',type=Path)
+    p.add_argument('--progress-interval',type=positive,default=10)
     p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
     p=subs.add_parser('status')
+    p.add_argument('--live',action='store_true')
+    p=subs.add_parser('watch',help='Prikaz procenta i procene vremena u drugom terminalu')
+    p.add_argument('--interval',type=positive,default=5)
+    p.add_argument('--once',action='store_true')
     for name in ('export','report','candidates'):
         p=subs.add_parser(name)
         p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
         p.add_argument('--output',type=Path)
         if name=='export': p.add_argument('--format',choices=('json','csv'),default='json')
     args=parser.parse_args(argv)
+    progress_path=args.database.with_suffix('.progress.json')
+    if args.command=='watch' or args.command=='status' and args.live:
+        from .progress import watch
+        try:return watch(progress_path,getattr(args,'interval',5),getattr(args,'once',True))
+        except KeyboardInterrupt:return 0
     store=Store(args.database)
     try:
         if args.command=='collect':
@@ -43,7 +53,12 @@ def main(argv=None):
             log.parent.mkdir(parents=True,exist_ok=True)
             logging.basicConfig(level=logging.INFO,format='%(asctime)s %(message)s',handlers=[logging.StreamHandler(),logging.FileHandler(log,encoding='utf-8')],force=True)
             print('Log:',log)
-            reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh)
+            from .locking import CollectionLock,CollectionBusy
+            try:
+                with CollectionLock(args.database.with_suffix('.collect.lock')):
+                    reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh,progress_path=progress_path,progress_interval=args.progress_interval,log_file=log)
+            except CollectionBusy as e:
+                print(e);return 3
             print(json.dumps(reports,ensure_ascii=False,indent=2))
             if any(r['status']=='interrupted' for r in reports): return 130
             return 0 if reports and all(r['status']=='ok' for r in reports) else 2
