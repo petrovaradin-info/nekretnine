@@ -2,7 +2,7 @@ import json
 import re
 from urllib.parse import urljoin, urlsplit, parse_qs
 from bs4 import BeautifulSoup
-from .model import Listing, canonical, number, area, norm
+from .model import Listing, canonical, number, area, norm, price_basis, local_location
 
 
 def text(node): return node.get_text(" ", strip=True) if node else ""
@@ -42,7 +42,13 @@ def listing_page(html, url, source):
         if q.scheme not in ("http", "https") or q.netloc != p.netloc: continue
         detail = (re.search(r"^/oglas/03-[0-9]+/", q.path) if source == "oglasi"
                   else re.search(r"^/(?:prodaja|izdavanje)-[^/]+/[^/]+/.*[a-f0-9]{24}$", q.path))
-        if detail and (source != "4zida" or q.path.startswith(p.path.rstrip("/") + "/")):
+        same_search = True
+        if source == '4zida' and detail:
+            current_parts, target_parts = p.path.strip('/').split('/'), q.path.strip('/').split('/')
+            expected = local_location(current_parts[-1].replace('-',' '))
+            actual = local_location(target_parts[1].replace('-',' '))
+            same_search = current_parts[0] == target_parts[0] and bool(expected) and expected == actual
+        if detail and same_search:
             found[canonical(target)] = text(a)
         elif q.path == p.path and page_key in parse_qs(q.query) and target != url:
             pages.append(target)
@@ -86,6 +92,13 @@ def detail(html, url, source, search):
             if len(cells) == 2 and text(cells[0]).endswith(":"):
                 ad.fields[text(cells[0]).rstrip(":")] = text(cells[1])
         ad.location_raw = ad.fields.get("Lokacija", "")
+        ad.address = ad.fields.get("Ulica", ad.fields.get("Adresa", ""))
+        photo_urls = [urljoin(url, n.get('data-large') or n.get('src','')) for n in soup.select('[data-advert-image-gallery] img[data-large]')]
+        photo_urls += [urljoin(url, a['href']) for a in soup.select('a[href]') if 'media.oglasi.rs/' in a['href'] and re.search(r"\.(?:jpe?g|png|webp)(?:[?#]|$)", a['href'], re.I)]
+        if not photo_urls:
+            photo_urls = [urljoin(url, n.get('src','')) for n in soup.select('[itemprop="image"][src]')]
+        ad.photos = [{'url': u} for u in dict.fromkeys(photo_urls) if urlsplit(u).scheme in ('http','https')]
+
         ad.rooms = ad.fields.get("Sobnost", "")
         ad.floor = ad.fields.get("Nivo u zgradi", "")
         ad.heating = ad.fields.get("Grejanje", "")
@@ -124,6 +137,11 @@ def detail(html, url, source, search):
         if kind == "plac": ad.plot_area_m2 = size
         else: ad.area_m2 = size
         ad.rooms = str(obj.get("numberOfRooms", ""))
+        images = obj.get('image', [])
+        if not isinstance(images, list): images = [images]
+        photo_urls = [resolve(image).get('contentUrl', resolve(image).get('url','')) if isinstance(image,dict) else image for image in images]
+        ad.photos = [{'url': u} for u in dict.fromkeys(photo_urls) if isinstance(u,str) and urlsplit(u).scheme in ('http','https')]
+
         address = obj.get("address", {})
         ad.address = address.get("streetAddress", "") if isinstance(address, dict) else str(address)
         seller = resolve(offer.get("seller", {}))
@@ -148,15 +166,9 @@ def detail(html, url, source, search):
     if title_area and stated_area and abs(title_area-stated_area) > max(1,stated_area*0.02):
         ad.review_reasons.append('title_area_conflict')
     if not ad.description: raise ValueError("Missing description; parser needs attention")
-    # Read units only within the listing, never financing widgets or navigation.
-    content = norm(ad.title + " " + ad.description + " " + ad.price_raw)
-    if trans == "prodaja": ad.price_basis = "total"
-    if trans == "izdavanje" and re.search(r"(?:po osobi|/osob)", content): ad.price_basis = "per_person"
-    elif trans == "izdavanje" and re.search(r"(?:dnevno|po danu|na dan|/dan)", content): ad.price_basis = "daily"
-    elif trans == "izdavanje" and re.search(r"(?:mesecno|mjesecno|/mesec|mesecna (?:cena|zakupnina))", content): ad.price_basis = "monthly"
-    if trans == 'izdavanje' and ad.price_basis != 'unknown':
-        ad.review_reasons.append('rental_price_period_from_text')
-    if re.search(r"(?:cena|price).{0,30}(?:po m2|/m2|/m²)", content):
+    ad.price_basis, ad.price_basis_method = price_basis(trans, ad.title, ad.description, ad.price_raw)
+    content = norm(ad.price_raw)
+    if re.search(r"(?:po m2|/m2|po m²|/m²)", content):
         ad.price_basis = 'unknown'
         ad.review_reasons.append('price_per_m2_requires_review')
     code = re.search(r"(?:agencijska šifra|agencijski id)\s*:\s*([A-Za-z0-9-]+)", ad.description, re.I)

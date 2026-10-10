@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 from .collector import collect
 from .store import Store
-from .model import TRANSACTIONS, PROPERTY_TYPES
+from .model import TRANSACTIONS, PROPERTY_TYPES, LOCATIONS
 from .export import export, report, candidates, write_json
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -25,13 +25,17 @@ def main(argv=None):
     p.add_argument('--source'); p.add_argument('--refresh',action='store_true')
     p.add_argument('--max-details',type=positive); p.add_argument('--max-pages',type=positive)
     p.add_argument('--log-file',type=Path)
+    p.add_argument('--location',choices=LOCATIONS)
     p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
     p=subs.add_parser('status')
-    for name in ('export','report','candidates'):
+    for name in ('export','report','candidates','deduplicate'):
         p=subs.add_parser(name)
         p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
         p.add_argument('--output',type=Path)
-        if name=='export': p.add_argument('--format',choices=('json','csv'),default='json')
+        p.add_argument('--location',choices=LOCATIONS)
+        if name=='export':
+            p.add_argument('--format',choices=('json','csv'),default='json')
+            p.add_argument('--flat',action='store_true',help='Export original listings instead of groups')
     args=parser.parse_args(argv)
     store=Store(args.database)
     try:
@@ -43,16 +47,19 @@ def main(argv=None):
             log.parent.mkdir(parents=True,exist_ok=True)
             logging.basicConfig(level=logging.INFO,format='%(asctime)s %(message)s',handlers=[logging.StreamHandler(),logging.FileHandler(log,encoding='utf-8')],force=True)
             print('Log:',log)
-            reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh)
+            reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh,location=args.location)
             print(json.dumps(reports,ensure_ascii=False,indent=2))
             if any(r['status']=='interrupted' for r in reports): return 130
             return 0 if reports and all(r['status']=='ok' for r in reports) else 2
         if args.command=='status':
             print(json.dumps(store.status(),ensure_ascii=False,indent=2)); return 0
-        rows=store.listings(args.transaction,args.property_type)
+        rows=store.listings(args.transaction,args.property_type,args.location)
         if args.command=='export':
             path=args.output or ROOT/'data'/('nekretnine.'+args.format)
-            export(path,rows,args.format)
+            export(path,rows,args.format,args.flat)
+        elif args.command=='deduplicate':
+            from .grouping import groups
+            path=args.output or ROOT/'data/nekretnine-grupe.json'; write_json(path,groups(rows))
         elif args.command=='report':
             path=args.output or ROOT/'data/nekretnine-pregled.html'; report(path,rows)
         else:

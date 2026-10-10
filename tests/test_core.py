@@ -23,12 +23,16 @@ class ParserTests(unittest.TestCase):
         self.assertEqual((ad.transaction,ad.property_type,ad.location),('prodaja','stan','Petrovaradin'))
         self.assertEqual(ad.price,81090); self.assertEqual(ad.area_m2,30)
         self.assertIn('BERZA',ad.advertiser); self.assertEqual(ad.agency_id,'1008009')
+        self.assertTrue(ad.photos)
+        self.assertTrue(all('media.oglasi.rs' in p['url'] for p in ad.photos))
 
     def test_4zida_references_not_publisher_address(self):
         ad=self.parse_fixture('4zida')
         self.assertEqual(ad.price,226500); self.assertEqual(ad.area_m2,101)
         self.assertEqual(ad.rooms,'4'); self.assertEqual(ad.location,'Petrovaradin')
         self.assertNotIn('Subotica',ad.location_raw)
+        self.assertGreater(len(ad.photos),2)
+        self.assertFalse(any('agencies/' in p['url'] for p in ad.photos))
 
     def test_all_categories_are_independent(self):
         for trans in ('prodaja','izdavanje'):
@@ -39,12 +43,17 @@ class ParserTests(unittest.TestCase):
                 self.assertEqual((ad.transaction,ad.property_type),(trans,kind))
                 self.assertEqual(ad.plot_area_m2,500)
                 self.assertEqual(ad.area_m2,None if kind=='plac' else 1200)
-                self.assertEqual(ad.price_basis,'unknown' if trans=='izdavanje' else 'total')
+                self.assertEqual(ad.price_basis,'monthly' if trans=='izdavanje' else 'total')
 
     def test_4zida_ignores_recommendations_from_other_categories(self):
         url='https://www.4zida.rs/prodaja-stanova/petrovaradin-gradske-lokacije-novi-sad'
         markup='<a href="/izdavanje-kuca/beograd/kuca/68bad4339f50b40bc00a3654">Preporuka</a>'
         self.assertEqual(listing_page(markup,url,'4zida')[0],[])
+
+    def test_4zida_accepts_neighborhood_detail_in_same_town(self):
+        root='https://www.4zida.rs/prodaja-stanova/sremski-karlovci'
+        link='/prodaja-stanova/centar-gradske-lokacije-sremski-karlovci/trosoban-stan/6a02e5aaf55b6ac2ad01bd82'
+        self.assertEqual(listing_page('<a href="'+link+'">Stan</a>',root,'4zida')[0],["https://www.4zida.rs"+link])
 
     def test_missing_category_is_not_inferred_from_search(self):
         with self.assertRaises(ValueError):
@@ -96,7 +105,7 @@ class StoreTests(unittest.TestCase):
         self.assertFalse(candidates([a,dict(b,property_type='kuca')]))
 
     def test_export_escapes_html_and_csv_formulas(self):
-        a=Listing('a','1','https://a/ad','<script>alert(1)</script>','prodaja','stan',description='=malicious').to_dict()
+        a=Listing('a','1','https://a/ad','<script>alert(1)</script>','prodaja','stan',description='=malicious',location='Petrovaradin').to_dict()
         a.update(first_seen='',last_seen='',status='observed')
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'report.html'; report(path,[a]); markup=path.read_text(encoding='utf-8')
