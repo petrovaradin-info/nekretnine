@@ -4,10 +4,8 @@ import time
 from urllib.parse import urlsplit, urljoin
 import requests
 from protego import Protego
-from .model import now, canonical
 from .parsers import listing_page, detail, listing_total
 from .model import now, canonical, LOCATIONS, local_location
-from .parsers import listing_page, detail
 
 LOG = logging.getLogger(__name__)
 AGENT = "PetrovaradinRealEstate/0.1"
@@ -79,26 +77,28 @@ class Client:
             p = urlsplit(url)
             self.check_robots(url)
             r = self.request(url)
-            if r.is_redirect:
-                target = urljoin(url, r.headers['Location'])
-                if urlsplit(target).netloc != p.netloc: raise FetchError('Unexpected cross-host redirect: ' + target)
-                url = target
-                continue
-            if 'text/html' not in r.headers.get('Content-Type',''): raise FetchError('Unexpected response type')
-            lower = r.text.lower()
-            if '<title>just a moment' in lower or 'cf-chl-' in lower: raise FetchError('Access verification required')
-            return r.text
+            try:
+                if r.is_redirect:
+                    target = urljoin(url, r.headers['Location'])
+                    if urlsplit(target).netloc != p.netloc: raise FetchError('Unexpected cross-host redirect: ' + target)
+                    url = target
+                    continue
+                if 'text/html' not in r.headers.get('Content-Type',''): raise FetchError('Unexpected response type')
+                lower = r.text.lower()
+                if '<title>just a moment' in lower or 'cf-chl-' in lower: raise FetchError('Access verification required')
+                return r.text
+            finally:r.close()
         raise FetchError('Too many redirects')
 
 
-def collect(store, config, only=None, transaction=None, property_type=None, max_details=None, max_pages=None, refresh=False, client=None, progress_path=None, progress_interval=10, log_file=None):
+def collect(store, config, only=None, transaction=None, property_type=None, max_details=None, max_pages=None, refresh=False, client=None, progress_path=None, progress_interval=10, log_file=None, location=None):
     from .progress import Progress
-    targets=[(source,search) for source in config['sources'] for search in source.get('searches',[]) if (not only or source['id']==only) and (not transaction or search['transaction']==transaction) and (not property_type or search['property_type']==property_type)]
+    targets=[(source,search) for source in config['sources'] for search in source.get('searches',[]) if (not location or search.get('location')==location) and (not only or source['id']==only) and (not transaction or search['transaction']==transaction) and (not property_type or search['property_type']==property_type)]
     progress=Progress(store,targets,path=progress_path,interval=progress_interval,log_file=log_file)
     progress.start()
     phase='error'
     try:
-        result=_collect(store,config,only,transaction,property_type,max_details,max_pages,refresh,client,progress)
+        result=_collect(store,config,only,transaction,property_type,max_details,max_pages,refresh,client,progress,location)
         phase='interrupted' if any(r['status']=='interrupted' for r in result) else 'complete'
         return result
     except KeyboardInterrupt:
@@ -106,7 +106,7 @@ def collect(store, config, only=None, transaction=None, property_type=None, max_
     finally:progress.finish(phase)
 
 
-def _collect(store, config, only=None, transaction=None, property_type=None, max_details=None, max_pages=None, refresh=False, client=None, progress=None):
+def _collect(store, config, only=None, transaction=None, property_type=None, max_details=None, max_pages=None, refresh=False, client=None, progress=None, location=None):
 
     client = client or Client(config.get('request_delay', 2))
     reports = []
@@ -114,13 +114,13 @@ def _collect(store, config, only=None, transaction=None, property_type=None, max
         for source in config['sources']:
             if only and source['id'] != only: continue
             for search in source.get('searches', []):
-                # if location and search.get('location') != location: continue
+                if location and search.get('location') != location: continue
                 if transaction and transaction != search['transaction']: continue
                 if property_type and property_type != search['property_type']: continue
                 key=(source['id'],search['url'])
                 started = now();started_clock=time.monotonic()
                 progress.update(key)
-                counts = dict(pages=0, discovered=0, attempted=0, saved=0, cached=0, review=0, processed=0, errors=[])
+                counts = dict(pages=0, discovered=0, attempted=0, saved=0, cached=0, review=0, processed=0, outside_area=0, errors=[])
                 if not source.get('enabled', True) or not search.get('enabled', True):
                     counts['reason'] = search.get('note', source.get('note','pending adapter'))
                     store.record(source['id'], search['url'], started, 'pending_integration', counts)
@@ -147,9 +147,10 @@ def _collect(store, config, only=None, transaction=None, property_type=None, max
                             queue.extend(p for p in pages if p not in visited)
                             LOG.info('[%s %s %s] PAGE %s: %s listings', source['id'], search['transaction'], search['property_type'], counts['pages'], len(links))
                             for link in links:
+                                link=canonical(link)
                                 if link in seen: continue
                                 seen.add(link); counts['discovered'] += 1
-                                if not refresh and store.fresh(link, config.get('refresh_hours',24)):
+                                if not refresh and store.known(canonical(link)):
                                     store.seen(link); counts['cached'] += 1;counts['processed'] += 1
                                     progress.update(key,counts,pending_pages=len(set(queue)-visited))
                                     LOG.info('CACHED %s',link); continue
@@ -160,12 +161,7 @@ def _collect(store, config, only=None, transaction=None, property_type=None, max
                                     ad = detail(client.get(link), link, source['id'], search)
                                     if ad.location not in LOCATIONS or 'title_location_conflict' in ad.review_reasons or (search.get('location') and ad.location != search['location']):
                                         counts['outside_area'] += 1; LOG.info('OUTSIDE AREA %s %s',ad.location_raw,link); continue
-                                    if config.get('photo_hash_limit',6):
-                                        from .photos import enrich_photos
-                                        photo_errors = enrich_photos(ad,client,store,limit=config.get('photo_hash_limit',6))
-                                        counts['photo_errors'].extend(photo_errors)
-                                        for error in photo_errors: LOG.warning('PHOTO ERROR %s %s',error['url'],error['error'])
-                                    counts['photos_hashed'] += sum(bool(p.get('dhash')) for p in ad.photos)
+                                    ad.photos=ad.photos[:1]
                                     store.save(ad); counts['saved'] += 1
                                     counts['review'] += bool(ad.review_reasons)
                                     LOG.info('SAVED %s %s price=%s area=%s review=%s %s', ad.transaction, ad.property_type, ad.price, ad.area_m2 or ad.plot_area_m2, ad.review_reasons, link)
@@ -180,6 +176,7 @@ def _collect(store, config, only=None, transaction=None, property_type=None, max
                             counts['errors'].append({'url':url,'error':str(e)}); LOG.warning('LIST ERROR %s %s',url,e)
                 except KeyboardInterrupt:
                     interrupted = True
+                LOG.info('DATABASE committed listings=%s',store.db.execute('SELECT COUNT(*) FROM listings').fetchone()[0])
                 status = 'interrupted' if interrupted else 'partial' if limited or counts['errors'] else 'ok'
                 counts['limited'] = limited
                 counts['elapsed_seconds']=round(time.monotonic()-started_clock,2)

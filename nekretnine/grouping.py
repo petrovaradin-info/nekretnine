@@ -1,10 +1,17 @@
 """Explainable, conservative grouping; every original listing is retained."""
 from collections import defaultdict
 from difflib import SequenceMatcher
+from functools import lru_cache
 import hashlib
 import re
 from .model import norm, LOCATIONS
 from .photos import photo_matches
+
+norm=lru_cache(maxsize=32768)(norm)
+
+@lru_cache(maxsize=8192)
+def description_similarity(a,b):
+    return SequenceMatcher(None,a,b,autojunk=False).ratio() if a and b else 0
 
 
 def room_count(raw):
@@ -41,9 +48,14 @@ def compare(a,b):
     if advertiser and ca and cb and ca!=cb: return None
     agency=bool(advertiser and ca and ca==cb)
     da,db=norm(a.get('description','')),norm(b.get('description',''))
-    similarity=SequenceMatcher(None,da,db,autojunk=False).ratio() if da and db else 0
     full=not a.get('description_incomplete') and not b.get('description_incomplete') and min(len(da),len(db))>=200
     photos=photo_matches(a.get('photos',[]),b.get('photos',[]))
+    if not agency and not photos:
+        if not full:return None
+        matcher=SequenceMatcher(None,da,db,autojunk=False)
+        # Upper bounds only discard pairs that could never reach the existing 0.9 threshold.
+        if matcher.real_quick_ratio()<0.9 or matcher.quick_ratio()<0.9:return None
+    similarity=description_similarity(da,db)
     price_a,price_b=a.get('price'),b.get('price')
     price_gap=abs(price_a-price_b)/max(price_a,price_b) if price_a and price_b else None
     close_price=price_gap is not None and price_gap<=0.1
@@ -76,24 +88,30 @@ def comparisons(rows):
         key='plot_area_m2' if bucket[0]['property_type']=='plac' else 'area_m2'
         bucket=sorted((r for r in bucket if r.get(key)),key=lambda r:(r[key],r['url']))
         for i,a in enumerate(bucket):
-            for b in bucket[i+1:]:
+            for j in range(i+1,len(bucket)):
+                b=bucket[j]
                 if b[key]-a[key]>max(1,a[key]*0.02): break
                 evidence=compare(a,b)
                 if evidence: edges.append(evidence)
     return sorted(edges,key=lambda e:e['urls'])
 
 
-def groups(rows):
+def groups(rows, edges=None):
     rows=sorted(rows,key=lambda r:r['url'])
     rows=[r for r in rows if r.get('location') in LOCATIONS]
-    edges=comparisons(rows)
+    edges=comparisons(rows) if edges is None else edges
     automatic={tuple(e['urls']):e for e in edges if e['automatic']}
     clusters=[]
+    membership={}
+    neighbors=defaultdict(set)
+    for a,b in automatic:neighbors[a].add(b);neighbors[b].add(a)
     for row in rows:
         # Complete-link grouping prevents A~B~C chaining where A contradicts C.
-        cluster=next((c for c in clusters if all(tuple(sorted((row['url'],m['url']))) in automatic for m in c)),None)
-        if cluster is None: clusters.append([row])
-        else: cluster.append(row)
+        candidates=sorted({membership[url] for url in neighbors[row['url']] if url in membership})
+        index=next((index for index in candidates if all(tuple(sorted((row['url'],m['url']))) in automatic for m in clusters[index])),None)
+        if index is None:index=len(clusters);clusters.append([row])
+        else:clusters[index].append(row)
+        membership[row['url']]=index
     output=[]
     for members in clusters:
         representative=max(members,key=lambda r:(len(r.get('photos',[])),len(r.get('description','')),r['url']))

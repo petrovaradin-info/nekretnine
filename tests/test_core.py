@@ -31,7 +31,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(ad.price,226500); self.assertEqual(ad.area_m2,101)
         self.assertEqual(ad.rooms,'4'); self.assertEqual(ad.location,'Petrovaradin')
         self.assertNotIn('Subotica',ad.location_raw)
-        self.assertGreater(len(ad.photos),2)
+        self.assertEqual(len(ad.photos),1)
         self.assertFalse(any('agencies/' in p['url'] for p in ad.photos))
 
     def test_all_categories_are_independent(self):

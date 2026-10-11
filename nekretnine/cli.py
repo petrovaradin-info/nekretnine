@@ -22,18 +22,22 @@ def main(argv=None):
     parser.add_argument('--config',type=Path,default=ROOT/'sources.json')
     subs=parser.add_subparsers(dest='command',required=True)
     p=subs.add_parser('collect')
+    p.add_argument('--location',choices=LOCATIONS)
     p.add_argument('--source'); p.add_argument('--refresh',action='store_true')
     p.add_argument('--max-details',type=positive); p.add_argument('--max-pages',type=positive)
     p.add_argument('--log-file',type=Path)
     p.add_argument('--progress-interval',type=positive,default=10)
     p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
+    p=subs.add_parser('update',help='Provera dostupnosti i cena poznatih oglasa')
+    p.add_argument('--log-file',type=Path)
+    p.add_argument('--interval-hours',type=positive,help='Bez opcije: najviše jedna provera dnevno po Europe/Belgrade')
     p=subs.add_parser('status')
     p.add_argument('--live',action='store_true')
     p=subs.add_parser('watch',help='Prikaz procenta i procene vremena u drugom terminalu')
     p.add_argument('--interval',type=positive,default=5)
     p.add_argument('--once',action='store_true')
 
-    for name in ('export','report','candidates','deduplicate'):
+    for name in ('export','report','candidates','deduplicate','publish'):
         p=subs.add_parser(name)
         p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
         p.add_argument('--output',type=Path)
@@ -49,27 +53,53 @@ def main(argv=None):
         except KeyboardInterrupt:return 0
     store=Store(args.database)
     try:
-        if args.command=='collect':
+        if args.command in ('collect','update'):
             config=json.loads(args.config.read_text(encoding='utf-8'))
             ids={s['id'] for s in config['sources']}
-            if args.source and args.source not in ids: parser.error('Unknown source; supported: '+', '.join(sorted(ids)))
-            log=args.log_file or ROOT/'logs'/f'collect-{datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}.log'
+            if args.command=='collect' and args.source and args.source not in ids: parser.error('Unknown source; supported: '+', '.join(sorted(ids)))
+            log=args.log_file or ROOT/'logs'/f'{args.command}-{datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}.log'
             log.parent.mkdir(parents=True,exist_ok=True)
             logging.basicConfig(level=logging.INFO,format='%(asctime)s %(message)s',handlers=[logging.StreamHandler(),logging.FileHandler(log,encoding='utf-8')],force=True)
             print('Log:',log)
             from .locking import CollectionLock,CollectionBusy
             try:
                 with CollectionLock(args.database.with_suffix('.collect.lock')):
-                    reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh,progress_path=progress_path,progress_interval=args.progress_interval,log_file=log)
+                    backup=ROOT/'data/backups'/f'nekretnine-{datetime.now():%Y%m%d-%H%M%S}-{os.getpid()}.sqlite3'
+                    store.backup(backup)
+                    from .runtime import retain_backups
+                    retain_backups(backup.parent)
+                    logging.info('DATABASE %s backup=%s integrity=%s',store.path.resolve(),backup,store.db.execute('PRAGMA quick_check').fetchone()[0])
+                    if args.command=='update':
+                        from .maintenance import update
+                        result=update(store,config,interval_hours=args.interval_hours,progress_path=progress_path,log_file=log)
+                        print(json.dumps(result,ensure_ascii=False,indent=2))
+                        return 2 if result['errors'] else 0
+                    reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh,progress_path=progress_path,progress_interval=args.progress_interval,log_file=log,location=args.location)
             except CollectionBusy as e:
                 print(e);return 3
-            reports=collect(store,config,args.source,args.transaction,args.property_type,args.max_details,args.max_pages,args.refresh,location=args.location)
             print(json.dumps(reports,ensure_ascii=False,indent=2))
             if any(r['status']=='interrupted' for r in reports): return 130
             return 0 if reports and all(r['status']=='ok' for r in reports) else 2
         if args.command=='status':
             print(json.dumps(store.status(),ensure_ascii=False,indent=2)); return 0
-        rows=store.listings(args.transaction,args.property_type,args.location)
+        rows=store.listings(args.transaction,args.property_type,args.location,active_only=True)
+        if args.command=='publish':
+            from .grouping import groups
+            from .locking import CollectionLock,CollectionBusy
+            try:
+                with CollectionLock(args.database.with_suffix('.collect.lock')):
+                    directory=args.output or args.database.parent
+                    print(f'Grupisanje {len(rows)} oglasa...',flush=True)
+                    evidence=candidates(rows)
+                    grouped=groups(rows,edges=evidence)
+                    export(directory/'nekretnine.json',rows,'json',grouped=grouped)
+                    export(directory/'nekretnine.csv',rows,'csv',grouped=grouped)
+                    write_json(directory/'nekretnine-grupe.json',grouped)
+                    write_json(directory/'nekretnine-duplikati.json',evidence)
+                    report(directory/'nekretnine-pregled.html',rows,grouped=grouped)
+                    print(f'Izvoz: {len(rows)} oglasa, {len(grouped)} grupa; {directory.resolve()}')
+                    return 0
+            except CollectionBusy as error:print(error);return 3
         if args.command=='export':
             path=args.output or ROOT/'data'/('nekretnine.'+args.format)
             export(path,rows,args.format,args.flat)
