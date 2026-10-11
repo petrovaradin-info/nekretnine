@@ -32,10 +32,7 @@ def main(argv=None):
     p=subs.add_parser('watch',help='Prikaz procenta i procene vremena u drugom terminalu')
     p.add_argument('--interval',type=positive,default=5)
     p.add_argument('--once',action='store_true')
-    for name in ('export','report','candidates'):
-    p.add_argument('--location',choices=LOCATIONS)
-    p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
-    p=subs.add_parser('status')
+
     for name in ('export','report','candidates','deduplicate'):
         p=subs.add_parser(name)
         p.add_argument('--transaction',choices=TRANSACTIONS); p.add_argument('--type',dest='property_type',choices=PROPERTY_TYPES)
