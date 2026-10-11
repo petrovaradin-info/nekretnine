@@ -57,7 +57,7 @@ Dokazi i odstupanja čuvaju se u `matching_evidence`. Slabija podudaranja ostaju
 
 Ovo je konzervativno prepoznavanje, ne potvrda identiteta vlasnika ili nekretnine. Zajedničke fotografije/renderi i šablonski opisi novogradnje ostaju mogući izvori greške. Oglasi bez dovoljno dokaza prikazuju se kao zasebne grupe. Trenutni mali probni uzorak nije merilo preciznosti na celom tržištu.
 
-Fotografije se uzimaju iz galerije oglasa, ne iz logotipa agencije ili navigacije. Prvih šest po oglasu se podrazumevano obrađuje u memoriji. Čuvaju se URL, SHA-256, dHash i aHash, dimenzije i 24-časovni keš otisaka; originalne datoteke se ne skladište. Vizuelno poređenje dopušta male promene kompresije/dimenzija, ali ne garantuje prepoznavanje velikih kropova i vodenih žigova. Male/jednobojne slike se odbacuju; ponovljena ista fotografija u galeriji broji se jednom. U `sources.json` postaviti `photo_hash_limit: 0` za isključivanje preuzimanja fotografija. Greške fotografija prikazuju se u `photo_errors` i logu, bez gubitka važećeg tekstualnog oglasa.
+Čuva se samo URL glavne fotografije; sakupljač ne preuzima fotografije niti računa otiske. Izvoz starih zapisa takođe prikazuje jednu fotografiju. `photo_hash_limit` više ne utiče na sakupljanje.
 
 ## Grupisani izlazi
 
@@ -109,3 +109,65 @@ Drugi sakupljač nad istom bazom odbija se OS zaključavanjem (izlazni kod 3); z
 Proces pokrenut pre ove verzije nema prikaz napretka ni zaključavanje: sačekajte njegov završetak pre novog pokretanja. Njegov rad možete pratiti preko `Get-Content <putanja-loga> -Tail 20 -Wait`. Novi monitor važi od sledećeg pokretanja.
 
 Testovi pokrivaju stvarne HTML uzorke, grupisanje i razlike između stanova, fotografije pri kompresiji/promeni dimenzija, lokalni filter, cene, istoriju i očuvanje svih izvornih linkova. Raspored nije instaliran i sadržaj nije javno objavljen.
+
+## Pouzdano dnevno sakupljanje — fix/nekretnine-004
+
+Utvrđene merge greške: dupli poziv `collect`, nedostajući `location` i brojači `outside_area`/fotografija, obrada slika pre upisa. Uklonjeno je preuzimanje fotografija; svaki `save` potvrđuje svoju SQLite transakciju. WAL, synchronous=FULL i busy_timeout=30s omogućavaju praćenje uz trajne upise. Pre CLI sakupljanja/update-a pravi se konzistentan SQLite backup u `data/backups`. Čuva se poslednjih 14 automatskih rezervnih kopija; ručne `before-*` kopije se ne brišu. Putanja baze, backup i rezultat quick_check ulaze u log.
+
+- 06:00 Europe/Belgrade: `collect` obilazi liste, a poznate URL-ove preskače bez čitanja detalja. `--refresh` je ručno forsiranje detalja.
+- 07:30 Europe/Belgrade: `update` proverava poznate aktivne URL-ove koji još nisu uspešno provereni tog dana. Promena cene ostaje u istoriji i resetuje rok čuvanja. HTTP 404/410 znači `unavailable` (verovatno prodato ili povučeno), ne dokaz prodaje. Ne pojavljuje se u aktivnom izvozu; izvorni zapis i istorija ostaju sačuvani. Timeout, 403, 5xx i greške parsera čuvaju postojeći zapis.
+- Šest kalendarskih meseci bez promene cene: posle uspešne provere u update prolazu oglas se premešta iz `listings` u `archived_listings`; istorija ostaje u `versions`. Poznat arhiviran URL ne prikuplja se ponovo kroz običan `collect`. Rok polazi od pouzdanog ISO datuma objave, a kada ga nema, od `first_seen`; datum opisa ili `last_seen` ne produžava rok. Promena cene otkrivena pre arhiviranja produžava rok. Arhivirani URL se više automatski ne proverava; ručni `collect --refresh` može ga ponovo očitati.
+
+Raspored je nezavisan Windows Task Scheduler: `Nekretnine-Collect-0600` i `Nekretnine-Update-0730`. Ranije Codex automatizacije su isključene. Codex i PyCharm ne moraju raditi. Instalacija proverava Windows zonu Beograd (Central Europe Standard Time), a Python update koristi Europe/Belgrade i tzdata. Računar mora biti uključen; može biti zaključan. Default `Interactive` zahteva prijavljenog Windows korisnika. Za rad kada korisnik nije prijavljen instalirajte kao administrator sa `-Unattended` (S4U); internet pristup je anoniman, bez Windows mrežnih kredencijala. Propušteno pokretanje pokušava se kada računar postane dostupan. Ako sakupljanje još radi u 07:30, update čeka bazu do 12 sati. Izvozi i podaci ne zavise od radnog direktorijuma terminala.
+
+Git Bash u PyCharm terminalu:
+
+```bash
+./venv/Scripts/python.exe main.py collect
+./venv/Scripts/python.exe main.py update
+./venv/Scripts/python.exe main.py watch
+```
+
+Za prolaz i sve izvoze:
+
+```bash
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-collector.ps1 -Mode collect
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/run-collector.ps1 -Mode update
+```
+
+`publish` osvežava sve izlaze koristeći jedno grupisanje umesto pet ponavljanja. Poređenja opisa se keširaju, parovi ispod matematičke gornje granice praga odbacuju se ranije, a pretraga grupa koristi veze podudaranja umesto prolaska kroz sve grupe. Kriterijumi spajanja ostaju konzervativni. JSON, CSV i HTML upisuju se preko privremene datoteke i zamene. Izlazni kod 2 je delimičan/ograničen prolaz, a 3 zauzeta baza. `watch` prikazuje i napredak update-a. Ne menjajte granu ili kod usred rada sakupljača.
+
+## Instalacija na novu Windows mašinu
+
+Repo uvek klonirati u `D:\PycharmProjects\nekretnine`. `venv` se pravi ponovo na svakoj mašini; ne kopirati stari venv. Potreban je Python 3.10 ili noviji i Windows vremenska zona Beograd. Installer ne menja sistemsku vremensku zonu automatski.
+
+Git Bash:
+
+```bash
+git clone https://github.com/petrovaradin-info/nekretnine.git /d/PycharmProjects/nekretnine
+cd /d/PycharmProjects/nekretnine
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/setup.ps1 -InstallSchedule
+```
+
+Alternativni Python interpreter može se zadati preko `-PythonExe "D:\putanja\python.exe"`. Za rad i dok je korisnik odjavljen, u administratorskom PowerShell-u:
+
+```powershell
+& D:\PycharmProjects\nekretnine\scripts\install-schedule.ps1 -Unattended
+```
+
+Sve aplikacione datoteke ostaju u projektu na D disku:
+
+- `venv/`: biblioteke; sistemski Python je preduslov i može biti instaliran zasebno.
+- `data/`: baza, izvozi, backup (poslednjih 14 automatskih kopija).
+- `logs/`: logovi zahteva i `task-*` log celog zakazanog prolaza.
+- `.runtime/tmp/`: privremene datoteke aplikacije i testova.
+- `.cache/pip/`: lokalni pip keš; setup dodatno koristi `--no-cache-dir`.
+
+Runtime podaci, keš, venv i logovi ne ulaze u Git. Kloniranje donosi kod, skripte i konfiguraciju; postojeća baza se prenosi zasebno ili se napuni novim sakupljanjem. Windows čuva metapodatke Task Scheduler-a u sistemskim direktorijumima; sistemski Python i raniji Codex keš nisu datoteke ovog projekta i ne premeštaju se ovim installerom.
+
+Provera i uklanjanje rasporeda (Git Bash):
+
+```bash
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-schedule.ps1 -Check
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-schedule.ps1 -Remove
+```

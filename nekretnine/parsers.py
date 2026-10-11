@@ -97,7 +97,7 @@ def detail(html, url, source, search):
         photo_urls += [urljoin(url, a['href']) for a in soup.select('a[href]') if 'media.oglasi.rs/' in a['href'] and re.search(r"\.(?:jpe?g|png|webp)(?:[?#]|$)", a['href'], re.I)]
         if not photo_urls:
             photo_urls = [urljoin(url, n.get('src','')) for n in soup.select('[itemprop="image"][src]')]
-        ad.photos = [{'url': u} for u in dict.fromkeys(photo_urls) if urlsplit(u).scheme in ('http','https')]
+        ad.photos = [{'url': u} for u in dict.fromkeys(photo_urls) if urlsplit(u).scheme in ('http','https')][:1]
 
         ad.rooms = ad.fields.get("Sobnost", "")
         ad.floor = ad.fields.get("Nivo u zgradi", "")
@@ -140,7 +140,7 @@ def detail(html, url, source, search):
         images = obj.get('image', [])
         if not isinstance(images, list): images = [images]
         photo_urls = [resolve(image).get('contentUrl', resolve(image).get('url','')) if isinstance(image,dict) else image for image in images]
-        ad.photos = [{'url': u} for u in dict.fromkeys(photo_urls) if isinstance(u,str) and urlsplit(u).scheme in ('http','https')]
+        ad.photos = [{'url': u} for u in dict.fromkeys(photo_urls) if isinstance(u,str) and urlsplit(u).scheme in ('http','https')][:1]
 
         address = obj.get("address", {})
         ad.address = address.get("streetAddress", "") if isinstance(address, dict) else str(address)
