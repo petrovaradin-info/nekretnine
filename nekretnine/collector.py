@@ -114,7 +114,7 @@ def _collect(store, config, only=None, transaction=None, property_type=None, max
         for source in config['sources']:
             if only and source['id'] != only: continue
             for search in source.get('searches', []):
-                if location and search.get('location') != location: continue
+                # if location and search.get('location') != location: continue
                 if transaction and transaction != search['transaction']: continue
                 if property_type and property_type != search['property_type']: continue
                 key=(source['id'],search['url'])
