@@ -171,3 +171,9 @@ Provera i uklanjanje rasporeda (Git Bash):
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-schedule.ps1 -Check
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-schedule.ps1 -Remove
 ```
+
+## Ravan izvoz za uvoz oglasa
+
+`export --schema import` daje samo JSON: `data/nekretnine-import-001.json`, `-002.json` i dalje, sa najviše 4.999 izvornih oglasa po fajlu. `publish` ih takođe osvežava. Višak starih delova, raniji jedinstveni JSON i import CSV uklanjaju se tek posle uspešnog upisa novih delova. Jedan red je jedna izvorna objava, bez grupisanja. Kolone: naslov, kategorija (Nekretnine), opis, cena, link, id (izvor:id), slika_url, kontakt_ime (ime agencije/oglašivača), kontakt_email, kontakt_tel, lokacija, tip_nekretnine, tip_ponude, povrsina (m²; za plac površina zemljišta), broj_soba, datum_objave. Dodati su valuta i osnova_cene da se razlikuju EUR/RSD i mesečna/ukupna/dnevna cena. Kontakt email/telefon se trenutno ne prikupljaju i ostaju prazni. `datum_objave` ostaje prazan dok izvor ne pruži pouzdan datum; ne zamenjuje se datumom pronalaska ili ažuriranja. JSON koristi UTF-8.
+
+Izvozni `naslov` normalizuje razmake i ograničen je na 200 znakova; izvorni naslov u bazi se ne menja. `slika_url` kodira Unicode i razmake u ASCII URL bez dvostrukog kodiranja već kodiranih delova.

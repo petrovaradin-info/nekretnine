@@ -44,8 +44,10 @@ def main(argv=None):
         p.add_argument('--location',choices=LOCATIONS)
         if name=='export':
             p.add_argument('--format',choices=('json','csv'),default='json')
+            p.add_argument('--schema',choices=('standard','import'),default='standard')
             p.add_argument('--flat',action='store_true',help='Export original listings instead of groups')
     args=parser.parse_args(argv)
+    if args.command=='export' and args.schema=='import' and args.format!='json':parser.error('Import izvoz podrzava samo JSON; koristite --format json')
     progress_path=args.database.with_suffix('.progress.json')
     if args.command=='watch' or args.command=='status' and args.live:
         from .progress import watch
@@ -97,9 +99,17 @@ def main(argv=None):
                     write_json(directory/'nekretnine-grupe.json',grouped)
                     write_json(directory/'nekretnine-duplikati.json',evidence)
                     report(directory/'nekretnine-pregled.html',rows,grouped=grouped)
+                    from .feed import export_feed
+                    export_feed(directory/'nekretnine-import.json',rows,'json')
                     print(f'Izvoz: {len(rows)} oglasa, {len(grouped)} grupa; {directory.resolve()}')
                     return 0
             except CollectionBusy as error:print(error);return 3
+        if args.command=='export' and args.schema=='import':
+            from .feed import export_feed
+            path=args.output or ROOT/'data'/('nekretnine-import.'+args.format)
+            paths=export_feed(path,rows,args.format)
+            for output in paths:print(output)
+            return 0
         if args.command=='export':
             path=args.output or ROOT/'data'/('nekretnine.'+args.format)
             export(path,rows,args.format,args.flat)
